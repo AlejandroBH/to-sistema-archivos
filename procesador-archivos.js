@@ -160,6 +160,55 @@ class ProcesadorArchivos {
     }
   }
 
+  // Crear directorio de backup con fecha y hora
+  async crearDirectorioBackup() {
+    const fecha = new Date();
+    const fechaFormateada = fecha.toLocaleDateString("es-CL", {
+      weekday: "long",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    const nombreDirectorio = `backup-${fechaFormateada} (${fecha.getHours()} ${fecha.getMinutes()})`;
+
+    this.rutaBackup = path.join(
+      this.directorioBase,
+      "backups",
+      nombreDirectorio
+    );
+
+    await fs.mkdir(this.rutaBackup, { recursive: true });
+    console.log(`📁 Directorio de Backup creado: ${this.rutaBackup}`);
+
+    return this.rutaBackup;
+  }
+
+  async ejecutarBackup(rutasArchivos) {
+    if (!this.rutaBackup) {
+      await this.crearDirectorioBackup();
+    }
+
+    console.log(`⏳ Iniciando backup de ${rutasArchivos.length} archivos...`);
+
+    const promesasCopia = rutasArchivos.map(async (rutaOrigen) => {
+      const nombreArchivo = path.basename(rutaOrigen);
+      const rutaDestino = path.join(this.rutaBackup, nombreArchivo);
+      try {
+        return await this.copiarArchivoStreams(rutaOrigen, rutaDestino);
+      } catch (error) {
+        console.error(`❌ Error copiando ${nombreArchivo}:`, error.message);
+        throw new Error(`Fallo en el backup de ${nombreArchivo}`);
+      }
+    });
+
+    try {
+      await Promise.all(promesasCopia);
+      console.log("🎉 Backup completado exitosamente.");
+    } catch (error) {
+      console.error("🛑 Backup finalizado con errores:", error.message);
+    }
+  }
+
   // Generar reporte consolidado
   async generarReporte(resultados) {
     const reporte = {
@@ -241,7 +290,17 @@ async function demostrarSistemaArchivos() {
     "./demo-archivos/copia-notas.md"
   );
 
-  // 6. Generar reporte
+  // 6. Ejecutar Backup
+  console.log("\n🛡️ Realizando Copia de Seguridad...");
+  const archivosParaBackup = [
+    "./demo-archivos/documento1.txt",
+    "./demo-archivos/documento2.txt",
+    "./demo-archivos/notas.md",
+    "./demo-archivos/documento1-mayusculas.txt",
+  ];
+  await procesador.ejecutarBackup(archivosParaBackup);
+
+  // 7. Generar reporte
   console.log("\n📊 Generando reporte...");
   const reporte = await procesador.generarReporte(resultados);
 
