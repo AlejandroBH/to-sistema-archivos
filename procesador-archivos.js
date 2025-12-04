@@ -6,6 +6,7 @@ const { Transform } = require("stream");
 class ProcesadorArchivos {
   constructor(directorioBase = "./archivos") {
     this.directorioBase = directorioBase;
+    this.indice = new Map();
   }
 
   // Crear estructura de directorios
@@ -24,10 +25,44 @@ class ProcesadorArchivos {
     }
   }
 
+  // Inicializar el índice
+  inicializarIndice() {
+    this.indice.clear();
+    console.log("✅ Índice de búsqueda inicializado.");
+  }
+
+  // Indexar contenido de archivo
+  indexarArchivo(rutaArchivo, contenido) {
+    const lineas = contenido.split("\n");
+    const nombreBase = path.basename(rutaArchivo);
+
+    lineas.forEach((linea, numLinea) => {
+      const palabras = linea
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((p) => p.length > 2);
+
+      palabras.forEach((palabra) => {
+        if (!this.indice.has(palabra)) {
+          this.indice.set(palabra, []);
+        }
+
+        this.indice.get(palabra).push({
+          ruta: rutaArchivo,
+          archivo: nombreBase,
+          linea: numLinea + 1,
+          fragmento: linea.trim().substring(0, 100) + "...",
+        });
+      });
+    });
+  }
+
   // Procesar archivo de texto (contar palabras)
   async procesarArchivoTexto(rutaArchivo) {
     try {
       const contenido = await fs.readFile(rutaArchivo, "utf8");
+      this.indexarArchivo(rutaArchivo, contenido);
+
       const estadisticas = {
         palabras: contenido.split(/\s+/).filter((p) => p.length > 0).length,
         caracteres: contenido.length,
@@ -48,13 +83,41 @@ class ProcesadorArchivos {
       );
 
       console.log(
-        `✅ Archivo ${nombreBase} procesado: ${estadisticas.palabras} palabras`
+        `✅ Archivo ${nombreBase} procesado e indexado: ${estadisticas.palabras} palabras`
       );
       return estadisticas;
     } catch (error) {
       await this.moverAErrores(rutaArchivo, error.message);
       throw error;
     }
+  }
+
+  // Buscar en el índice
+  buscarEnIndice(termino) {
+    const terminoNormalizado = termino.toLowerCase();
+
+    if (this.indice.has(terminoNormalizado)) {
+      return this.indice.get(terminoNormalizado);
+    }
+
+    const resultadosParciales = [];
+    for (const [palabra, ubicaciones] of this.indice.entries()) {
+      if (palabra.includes(terminoNormalizado)) {
+        resultadosParciales.push(...ubicaciones);
+      }
+    }
+
+    const unicos = new Set();
+    const resultadosFinales = [];
+    resultadosParciales.forEach((res) => {
+      const clave = `${res.ruta}:${res.linea}`;
+      if (!unicos.has(clave)) {
+        unicos.add(clave);
+        resultadosFinales.push(res);
+      }
+    });
+
+    return resultadosFinales;
   }
 
   // Convertir archivo a mayúsculas usando streams
@@ -354,6 +417,50 @@ async function demostrarSistemaArchivos() {
   console.log(
     `- Promedio palabras: ${reporte.estadisticasGlobales.promedioPalabras}`
   );
+
+  // 8. Demostracion de busqueda en indice
+  console.log("\n🔎 Funcionalidad de búsqueda");
+
+  procesador.inicializarIndice();
+  console.log("⚙️ Indexando archivos de demostración...");
+  await procesador.procesarDirectorio(procesador.directorioBase);
+
+  const termino1 = "documento";
+  console.log(`\nBUSCANDO 1: Término exacto "${termino1}"`);
+  const resultados1 = procesador.buscarEnIndice(termino1);
+
+  if (resultados1.length > 0) {
+    console.log(`✅ Encontrados ${resultados1.length} resultados:`);
+    resultados1.forEach((res) => {
+      console.log(`- ${res.archivo} (Línea ${res.linea}): ${res.fragmento}`);
+    });
+  } else {
+    console.log("❌ No se encontraron coincidencias.");
+  }
+
+  const termino2 = "practicar";
+  console.log(`\nBUSCANDO 2: Término exacto "${termino2}"`);
+  const resultados2 = procesador.buscarEnIndice(termino2);
+  if (resultados2.length > 0) {
+    console.log(`✅ Encontrados ${resultados2.length} resultados:`);
+    resultados2.forEach((res) => {
+      console.log(`- ${res.archivo} (Línea ${res.linea}): ${res.fragmento}`);
+    });
+  } else {
+    console.log("❌ No se encontraron coincidencias.");
+  }
+
+  const termino3 = "analis";
+  console.log(`\nBUSCANDO 3: Término parcial "${termino3}"`);
+  const resultados3 = procesador.buscarEnIndice(termino3);
+  if (resultados3.length > 0) {
+    console.log(`✅ Encontrados ${resultados3.length} resultados:`);
+    resultados3.forEach((res) => {
+      console.log(`- ${res.archivo} (Línea ${res.linea}): ${res.fragmento}`);
+    });
+  } else {
+    console.log("❌ No se encontraron coincidencias.");
+  }
 
   console.log("\n🎯 Sistema de archivos completado exitosamente!");
 }
