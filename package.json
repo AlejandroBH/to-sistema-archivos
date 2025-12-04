@@ -4,7 +4,7 @@
   "description": "",
   "main": "procesador-archivos.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node procesador-archivos"
   },
   "keywords": [],
   "author": "Alejandro Barrera <alejandro91dark@hotmail.es>",
