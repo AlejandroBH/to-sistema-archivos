@@ -236,11 +236,51 @@ class ProcesadorArchivos {
   }
 }
 
+async function ejecutarCLI() {
+  const procesador = new ProcesadorArchivos("./demo-cli");
+  const args = process.argv.slice(2);
+  const comando = args[0];
+  const archivo = {
+    nombre: args[1],
+    contenido: args[2],
+  };
+
+  console.log(`\n⚙️ Ejecutando comando: ${comando.toUpperCase()}...`);
+
+  try {
+    await procesador.inicializar();
+
+    switch (comando) {
+      case "inicializar":
+        break;
+
+      case "procesar":
+        console.log("\n⚙️ Procesando archivos...");
+        await procesador.procesarDirectorio("./demo-cli");
+        break;
+
+      case "crear":
+        const ruta = path.join("./demo-cli", archivo.nombre);
+        await fs.writeFile(ruta, archivo.contenido);
+        console.log(`✅ Creado: ${archivo.nombre}`);
+        break;
+
+      default:
+        console.error(`❌ Comando no reconocido: ${comando}`);
+        break;
+    }
+  } catch (error) {
+    console.error("🛑 Error en la ejecución del comando:", error.message);
+    process.exit(1);
+  }
+}
+
+ejecutarCLI();
+
 // Demostración del sistema completo
 async function demostrarSistemaArchivos() {
-  console.log("🚀 DEMOSTRACIÓN: SISTEMA DE PROCESAMIENTO DE ARCHIVOS\n");
-
   const procesador = new ProcesadorArchivos("./demo-archivos");
+  console.log("🚀 DEMOSTRACIÓN: SISTEMA DE PROCESAMIENTO DE ARCHIVOS\n");
 
   // 1. Inicializar estructura
   console.log("🏗️ Inicializando estructura...");
